@@ -26,6 +26,7 @@ impl UpdateTemp for Temp {
             "mem" => self.mem = Some(value),
             _ => {}
         }
+        self.calculate_avg();
     }
 
     fn calculate_avg(&mut self) {
