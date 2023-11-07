@@ -6,14 +6,16 @@ pub struct Temp {
     edge: Option<usize>,
     junction: Option<usize>,
     mem: Option<usize>,
+    avg: Option<usize>,
 }
 
 async fn get_temp_file(num: usize) -> (String, String) {
     (format!("temp{}_label", num), format!("temp{}_input", num))
 }
 
-trait UpdateTemp {
+pub trait UpdateTemp {
     fn update_value(&mut self, key: &str, value: usize);
+    fn calculate_avg(&mut self);
 }
 
 impl UpdateTemp for Temp {
@@ -25,6 +27,23 @@ impl UpdateTemp for Temp {
             _ => {}
         }
     }
+
+    fn calculate_avg(&mut self) {
+        let values = [&self.edge, &self.junction, &self.mem];
+        let mut res = Vec::<usize>::new();
+
+        for value in values {
+            if let Some(v) = value {
+                res.push(*v);
+            }
+        }
+
+        self.avg = if res.is_empty() {
+            None
+        } else {
+            Some(res.iter().sum::<usize>() / res.len())
+        };
+    }
 }
 
 impl Temp {
@@ -33,6 +52,7 @@ impl Temp {
             edge: None,
             junction: None,
             mem: None,
+            avg: None,
         }
     }
 
