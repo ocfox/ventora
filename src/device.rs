@@ -1,6 +1,6 @@
 use crate::ids::get_product_name;
 use crate::utils::{get_bus_id, read_file, read_u16};
-use std::error::Error;
+use anyhow::{Context, Result};
 use std::path::PathBuf;
 use tokio::fs::read_dir;
 
@@ -45,13 +45,19 @@ impl Device {
         }
     }
 
-    pub async fn get_gpu_name(&self) -> Result<Option<String>, Box<dyn Error>> {
-        let device_id = read_u16(self.path.join("device")).await?.unwrap();
-        let revision_id = read_u16(self.path.join("revision")).await?.unwrap();
+    pub async fn get_gpu_name(&self) -> Result<Option<String>> {
+        let device_id = read_u16(self.path.join("device"))
+            .await?
+            .context("Failed to read device ID file")?;
 
-        match get_product_name(device_id, revision_id).await? {
-            Some(product_name) => Ok(Some(product_name.to_string())),
-            None => Ok(Some("Not found".to_string())),
-        }
+        let revision_id = read_u16(self.path.join("revision"))
+            .await?
+            .context("Failed to read revision ID file")?;
+
+        let product_name = get_product_name(device_id, revision_id)
+            .await
+            .expect("Unrecognized Graphics Card");
+
+        Ok(product_name)
     }
 }
