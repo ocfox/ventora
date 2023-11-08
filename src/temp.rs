@@ -84,3 +84,26 @@ impl Temp {
         Ok(temp)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_update_value_and_calculate_avg() {
+        let mut temp = Temp::new();
+
+        temp.update_value("edge", 10);
+        temp.update_value("junction", 20);
+        temp.calculate_avg();
+        assert_eq!(temp.avg, Some(15));
+
+        temp.update_value("mem", 30);
+        temp.calculate_avg();
+        assert_eq!(temp.avg, Some(20));
+
+        temp.update_value("unknown", 5);
+        temp.calculate_avg();
+        assert_eq!(temp.avg, Some(20));
+    }
+}
