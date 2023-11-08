@@ -8,6 +8,7 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0"
+async-trait = "0.1.74"
 
 [dependencies.tokio]
 version = "1.33"
@@ -17,4 +18,10 @@ features = [
   "macros",
   "sync",
   "rt-multi-thread",
+]
+
+[dependencies.nix]
+version = "0.27.1"
+features = [
+  "user"
 ]

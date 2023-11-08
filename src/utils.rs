@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
+use nix::unistd;
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::fs::read_dir;
 use tokio::io;
+extern crate nix;
 
 pub trait PathProvider {
     fn get_path(&self) -> PathBuf;
@@ -23,6 +25,11 @@ impl PathProvider for PathBuf {
 pub async fn read_file<T: PathProvider>(path: T) -> io::Result<String> {
     let buffer = tokio::fs::read_to_string(path.get_path()).await?;
     Ok(buffer)
+}
+
+pub async fn write_file<T: PathProvider>(path: T, buffer: String) -> Result<()> {
+    tokio::fs::write(path.get_path(), buffer.as_bytes()).await?;
+    Ok(())
 }
 
 pub async fn read_file_tirmmed<T: PathProvider>(path: T) -> io::Result<String> {
@@ -62,6 +69,10 @@ pub async fn get_hwmon_path(path: &PathBuf) -> io::Result<Option<PathBuf>> {
     }
 
     Ok(None)
+}
+
+pub fn check_running_root() -> bool {
+    unistd::geteuid().is_root()
 }
 
 pub async fn read_u16(file_path: PathBuf) -> std::io::Result<Option<u16>> {
