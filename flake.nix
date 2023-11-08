@@ -28,7 +28,10 @@
         inherit (pkgs) lib;
 
         craneLib = crane.lib.${system};
-        src = craneLib.cleanCargoSource (craneLib.path ./.);
+        src = lib.cleanSourceWith {
+          src = craneLib.path ./.;
+          filter = idsOrCargo;
+        };
 
         commonArgs = {
           inherit src;
@@ -57,11 +60,7 @@
         idsOrCargo = path: type:
           (idsFilter path type) || (craneLib.filterCargoSources path type);
         ventora = craneLib.buildPackage (commonArgs // {
-          inherit cargoArtifacts;
-          src = lib.cleanSourceWith {
-            src = craneLib.path ./.;
-            filter = idsOrCargo;
-          };
+          inherit cargoArtifacts src;
         });
       in
       {
