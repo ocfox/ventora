@@ -4,17 +4,33 @@ use tokio::fs;
 use tokio::fs::read_dir;
 use tokio::io;
 
-pub async fn read_file(path: PathBuf) -> io::Result<String> {
-    let buffer = tokio::fs::read_to_string(path).await?;
+pub trait PathProvider {
+    fn get_path(&self) -> PathBuf;
+}
+
+impl PathProvider for Option<PathBuf> {
+    fn get_path(&self) -> PathBuf {
+        self.clone().unwrap_or_default()
+    }
+}
+
+impl PathProvider for PathBuf {
+    fn get_path(&self) -> PathBuf {
+        self.clone()
+    }
+}
+
+pub async fn read_file<T: PathProvider>(path: T) -> io::Result<String> {
+    let buffer = tokio::fs::read_to_string(path.get_path()).await?;
     Ok(buffer)
 }
 
-pub async fn read_file_tirmmed(path: PathBuf) -> io::Result<String> {
+pub async fn read_file_tirmmed<T: PathProvider>(path: T) -> io::Result<String> {
     let buffer = read_file(path).await?;
     Ok(buffer.trim().to_string())
 }
 
-pub async fn read_file_to_usize(path: PathBuf) -> Result<usize> {
+pub async fn read_file_to_usize<T: PathProvider>(path: T) -> Result<usize> {
     let num = read_file_tirmmed(path).await?;
     let res = num
         .parse::<usize>()
