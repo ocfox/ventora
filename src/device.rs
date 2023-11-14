@@ -1,16 +1,27 @@
 use crate::ids::get_product_name;
 use crate::utils::{get_bus_id, read_file, read_u16};
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{self, PathBuf};
 use tokio::fs::read_dir;
 
 static DRM_PATH: &str = "/sys/class/drm";
+static PCI_PATH: &str = "/sys/bus/pci/devices";
 
+#[derive(Debug)]
 pub struct Device {
     pub path: PathBuf,
     pub bus_id: String,
 }
+
 impl Device {
+    pub async fn from_bus_id(bus_id: String) -> Result<Option<Self>> {
+        let path = path::PathBuf::from(PCI_PATH).join(&bus_id);
+        match path.exists() {
+            true => Ok(Some(Self { path, bus_id })),
+            _ => Ok(None),
+        }
+    }
+
     pub async fn get_all_cards() -> std::io::Result<Option<Vec<Device>>> {
         let mut cards: Vec<Device> = Vec::new();
         let mut dir = read_dir(DRM_PATH).await?;

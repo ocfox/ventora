@@ -9,6 +9,12 @@ license = "MIT"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1.74"
+clap = "4.4.8"
+dirs = "5.0.1"
+toml = "0.8.6"
+glob = "0.3.1"
+serde = "1.0"
+ratatui = "0.24.0"
 
 [dependencies.tokio]
 version = "1.33"
