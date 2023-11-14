@@ -1,101 +1,84 @@
 {
   description = "A utility to manually adjust AMD graphics card fans";
-
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     crane = {
       url = "github:ipetkov/crane";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.rust-analyzer-src.follows = "";
-    };
-
-    flake-utils.url = "github:numtide/flake-utils";
+    systems.url = "github:nix-systems/default-linux";
   };
 
-  outputs = { self, nixpkgs, crane, fenix, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs = inputs@{ flake-parts, crane, nixpkgs, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
+    systems = import inputs.systems;
+
+    imports = [
+      inputs.flake-parts.flakeModules.easyOverlay
+    ];
+
+    perSystem = { self', pkgs, lib, ... }:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
+        packageFor = pkgs:
+          let
+            inherit (lib)
+              importTOML
+              sourceByRegex
+              ;
+            Cargo-toml = importTOML ./Cargo.toml;
 
-        inherit (pkgs) lib;
+            pname = "ventora";
+            version = Cargo-toml.package.version;
 
-        craneLib = crane.lib.${system};
-        src = lib.cleanSourceWith {
-          src = craneLib.path ./.;
-          filter = idsOrCargo;
-        };
+            craneLib = crane.mkLib pkgs;
 
-        commonArgs = {
-          inherit src;
-          strictDeps = true;
+            src = sourceByRegex ./. [
+              "(src)(/.*)?"
+              ''Cargo\.(toml|lock)''
+            ];
 
-          buildInputs = [
-          ] ++ lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.libiconv
-          ];
-        };
+            commonCraneArgs = {
+              inherit src pname version;
 
-        craneLibLLvmTools = craneLib.overrideToolchain
-          (fenix.packages.${system}.complete.withComponents [
-            "cargo"
-            "llvm-tools"
-            "rustc"
-          ]);
+              nativeBuildInputs = [ pkgs.installShellFiles ];
+            };
 
-        # Build *just* the cargo dependencies, so we can reuse
-        # all of that work (e.g. via cachix) when running in CI
-        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+            cargoArtifacts = craneLib.buildDepsOnly commonCraneArgs;
+          in
+          craneLib.buildPackage (commonCraneArgs // {
+            inherit cargoArtifacts;
 
-        # Build the actual crate itself, reusing the dependency
-        # artifacts from above.
-        idsFilter = path: _type: builtins.match ".*ids$" path != null;
-        idsOrCargo = path: type:
-          (idsFilter path type) || (craneLib.filterCargoSources path type);
-        ventora = craneLib.buildPackage (commonArgs // {
-          inherit cargoArtifacts src;
-        });
+            GEN_ARTIFACTS = "artifacts";
+
+            meta.mainProgram = "ventora";
+          });
+
+        ventora = packageFor pkgs;
       in
       {
-        checks = {
-          inherit ventora;
-
-          ventora-fmt = craneLib.cargoFmt {
-            inherit src;
-          };
-
-          ventora-nextest = craneLib.cargoNextest (commonArgs // {
-            inherit cargoArtifacts;
-            partitions = 1;
-            partitionType = "count";
-          });
-        };
+        formatter = pkgs.nixpkgs-fmt;
 
         packages = {
           default = ventora;
-          ventora-llvm-coverage = craneLibLLvmTools.cargoLlvmCov (commonArgs // {
-            inherit cargoArtifacts;
-          });
+          typst-dev = self'.packages.default;
         };
 
-        apps.default = flake-utils.lib.mkApp {
-          drv = ventora;
+        overlayAttrs = builtins.removeAttrs self'.packages [ "default" ];
+
+        apps.default = {
+          type = "app";
+          program = lib.getExe ventora;
         };
 
-        devShells.default = craneLib.devShell {
-          checks = self.checks.${system};
-
+        devShells.default = pkgs.mkShell {
           packages = with pkgs; [
-            rustfmt
+            rustc
+            cargo
             rust-analyzer
+            rustfmt
           ];
         };
-      });
+      };
+  };
 }
